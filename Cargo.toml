@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "crates/*",
+]
+resolver = "2"
+
+[workspace.dependencies]
+exstreamer      = { git = "https://github.com/jasonshyang/exstreamer", rev = "726bf09" }
+anyhow          = { version = "1.0" }
+tokio           = { version = "1.0", features = ["full"] }
+dec             = { version = "0.4.11", features = ["num-traits"] }
+chrono          = { version = "0.4" }
+thiserror       = { version = "1.0" }
+tokio-stream    = { version = "0.1" }
+async-trait     = { version = "0.1" }
+futures         = { version = "0.3" }
+sqlx            = { version = "0.8", features = ["sqlite", "runtime-tokio"]}

@@ -1,0 +1,15 @@
+[package]
+name = "ticker-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dec.workspace           = true
+chrono.workspace        = true
+exstreamer.workspace    = true
+thiserror.workspace     = true
+tokio-stream.workspace  = true
+async-trait.workspace   = true
+futures.workspace       = true
+tokio.workspace         = true
+sqlx.workspace          = true

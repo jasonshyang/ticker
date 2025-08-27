@@ -1,35 +1,38 @@
 use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
-use crate::{error::TickerError, types::Event};
+use crate::{error::TickerError, types::PriceTick};
 
-pub async fn run_db_task(db: SqlitePool, mut rx: mpsc::Receiver<Event>) -> Result<(), TickerError> {
-    while let Some(event) = rx.recv().await {
-        store_event(event, &db).await?;
+pub async fn run_db_task(
+    db: SqlitePool,
+    mut rx: mpsc::Receiver<PriceTick>,
+) -> Result<(), TickerError> {
+    while let Some(tick) = rx.recv().await {
+        store_event(&db, tick).await?;
     }
     Ok(())
 }
 
-async fn store_event(event: Event, db: &SqlitePool) -> Result<(), TickerError> {
-    if let Some(query) = insert_query(&event) {
-        sqlx::query(&query).execute(db).await?;
-    }
+pub async fn create_tables(db: &SqlitePool) -> Result<(), TickerError> {
+    sqlx::query(include_str!("../queries/schema.sql"))
+        .execute(db)
+        .await?;
     Ok(())
 }
 
-fn insert_query(event: &Event) -> Option<String> {
-    match event {
-        Event::PriceTick(tick) => Some(format!(
-            "INSERT INTO price_ticks (exchange, symbol, price, sz, ts) VALUES ('{}', '{}', {}, {}, '{}');",
-            tick.exchange, tick.symbol, tick.price, tick.size, tick.timestamp
-        )),
-        Event::Error(err) => {
-            eprintln!("Error event received: {}", err);
-            None
-        }
-        Event::Unsupported => {
-            eprintln!("Unsupported event received");
-            None
-        }
-    }
+pub async fn store_event(db: &SqlitePool, tick: PriceTick) -> Result<(), TickerError> {
+    let (exchange, symbol, price, size, timestamp) = tick.into_strings();
+
+    sqlx::query_file!(
+        "queries/insert_price_tick.sql",
+        exchange,
+        symbol,
+        price,
+        size,
+        timestamp,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
 }

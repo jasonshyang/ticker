@@ -15,11 +15,12 @@ pub enum Exchange {
 
 #[derive(Debug)]
 pub enum Event {
-    PriceTick(PriceTick),
+    PriceTick(RawPriceTick),
     Error(String),
     Unsupported,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Pair {
     BTCUSDT,
     ETHUSDT,
@@ -34,16 +35,35 @@ pub enum PairFormat {
 }
 
 #[derive(Debug)]
-pub struct PriceTick {
-    pub exchange: Exchange,
-    pub symbol: String,
+pub struct RawPriceTick {
     pub price: Decimal64,
     pub size: Decimal64,
     pub timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug)]
+pub struct PriceTick {
+    pub exchange: Exchange,
+    pub symbol: Pair,
+    pub price: Decimal64,
+    pub size: Decimal64,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl PriceTick {
+    pub fn into_strings(self) -> (String, String, String, String, String) {
+        (
+            self.exchange.to_string(),
+            self.symbol.to_string(),
+            self.price.to_string(),
+            self.size.to_string(),
+            self.timestamp.to_rfc3339(),
+        )
+    }
+}
+
 impl Pair {
-    pub fn to_string(&self, format: PairFormat) -> String {
+    pub fn format(&self, format: PairFormat) -> String {
         match self {
             Pair::BTCUSDT => format.format("BTC", "USDT"),
             Pair::ETHUSDT => format.format("ETH", "USDT"),
@@ -73,6 +93,17 @@ impl std::fmt::Display for Exchange {
             Exchange::Binance => "Binance",
             Exchange::Bybit => "Bybit",
             Exchange::Coinbase => "Coinbase",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl std::fmt::Display for Pair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Pair::BTCUSDT => "BTCUSDT",
+            Pair::ETHUSDT => "ETHUSDT",
+            Pair::SOLUSDT => "SOLUSDT",
         };
         write!(f, "{}", s)
     }

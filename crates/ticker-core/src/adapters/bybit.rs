@@ -4,7 +4,7 @@ use futures::{StreamExt, stream};
 use crate::{
     adapters::ExchangeAdapter,
     error::TickerError,
-    types::{Event, EventStream, Exchange, Pair, PairFormat, PriceTick},
+    types::{Event, EventStream, Exchange, Pair, PairFormat, RawPriceTick},
 };
 
 #[derive(Clone)]
@@ -12,9 +12,13 @@ pub struct BybitAdapter;
 
 #[async_trait::async_trait]
 impl ExchangeAdapter for BybitAdapter {
+    fn kind() -> Exchange {
+        Exchange::Bybit
+    }
+
     async fn get_event_stream(&self, pair: &Pair) -> Result<EventStream<'_, Event>, TickerError> {
         let (stream, _) = exstreamer::StreamBuilder::bybit()
-            .with_trade(pair.to_string(PairFormat::Lower))
+            .with_trade(pair.format(PairFormat::Lower))
             .connect()
             .await?;
 
@@ -24,13 +28,11 @@ impl ExchangeAdapter for BybitAdapter {
     }
 }
 
-impl TryFrom<BybitTradeData> for PriceTick {
+impl TryFrom<BybitTradeData> for RawPriceTick {
     type Error = TickerError;
 
     fn try_from(trade: BybitTradeData) -> Result<Self, Self::Error> {
-        Ok(PriceTick {
-            exchange: Exchange::Bybit,
-            symbol: trade.symbol,
+        Ok(RawPriceTick {
             price: trade.price.parse()?,
             size: trade.size.parse()?,
             timestamp: chrono::DateTime::from_timestamp_millis(trade.timestamp as i64)

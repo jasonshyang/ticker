@@ -4,7 +4,7 @@ use tokio_stream::StreamExt as _;
 use crate::{
     adapters::ExchangeAdapter,
     error::TickerError,
-    types::{Event, EventStream, Exchange, Pair, PairFormat, PriceTick},
+    types::{Event, EventStream, Exchange, Pair, PairFormat, RawPriceTick},
 };
 
 #[derive(Clone)]
@@ -12,9 +12,13 @@ pub struct CoinbaseAdapter;
 
 #[async_trait::async_trait]
 impl ExchangeAdapter for CoinbaseAdapter {
+    fn kind() -> Exchange {
+        Exchange::Bybit
+    }
+
     async fn get_event_stream(&self, pair: &Pair) -> Result<EventStream<'_, Event>, TickerError> {
         let (stream, _) = exstreamer::StreamBuilder::coinbase()
-            .with_trade(pair.to_string(PairFormat::UpperWithDash))
+            .with_trade(pair.format(PairFormat::UpperWithDash))
             .connect()
             .await?;
 
@@ -24,7 +28,7 @@ impl ExchangeAdapter for CoinbaseAdapter {
     }
 }
 
-impl TryFrom<CoinbaseTicker> for PriceTick {
+impl TryFrom<CoinbaseTicker> for RawPriceTick {
     type Error = TickerError;
 
     fn try_from(tick: CoinbaseTicker) -> Result<Self, Self::Error> {
@@ -32,9 +36,7 @@ impl TryFrom<CoinbaseTicker> for PriceTick {
             .map_err(|e| TickerError::RawEventParseError(format!("Invalid timestamp: {}", e)))?
             .with_timezone(&chrono::Utc);
 
-        Ok(PriceTick {
-            exchange: Exchange::Coinbase,
-            symbol: tick.product_id,
+        Ok(RawPriceTick {
             price: tick.price.parse()?,
             size: tick.last_size.parse()?,
             timestamp,

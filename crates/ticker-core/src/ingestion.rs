@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use dec::Decimal64;
 use rayon::iter::{IntoParallelIterator, ParallelIterator as _};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
@@ -22,7 +21,18 @@ pub async fn run_ingestion_task<E>(
 where
     E: ExchangeAdapter + Send + Sync + 'static,
 {
-    let mut stream = exchange.get_event_stream(&pair).await?;
+    let mut stream = match exchange.get_event_stream(&pair).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "Error getting event stream for {:?} on {:?}: {}",
+                pair,
+                E::kind(),
+                e
+            );
+            return Err(e);
+        }
+    };
     let mut buffer = Vec::with_capacity(buffer_size);
     let mut ticker = tokio::time::interval(tick);
 
@@ -38,6 +48,7 @@ where
                 let events = std::mem::take(&mut buffer);
                 if let Some(price_tick) = par_aggregate(E::kind(), pair, Utc::now(), events).await {
                     if tx.send(price_tick).await.is_err() {
+                        eprintln!("Receiver dropped, stopping ingestion task for {:?} on {:?}", pair, E::kind());
                         break;
                     }
                 }
@@ -56,19 +67,22 @@ async fn par_aggregate(
 ) -> Option<PriceTick> {
     let (weighted_sum_price, total_size) = events
         .into_par_iter()
-        .filter_map(|event| {
-            if let Event::PriceTick(tick) = event {
+        .filter_map(|event| match event {
+            Event::PriceTick(tick) if tick.price > 0.0 && tick.size > 0.0 => {
                 Some((tick.price * tick.size, tick.size))
-            } else {
+            }
+            Event::Error(err) => {
+                eprintln!("Error event from {:?} on {:?}: {}", exchange, pair, err);
                 None
             }
+            _ => None,
         })
         .reduce(
-            || (Decimal64::ZERO, Decimal64::ZERO),
+            || (0.0, 0.0),
             |(sum_vw, sum_w), (vw, w)| (sum_vw + vw, sum_w + w),
         );
 
-    if total_size > Decimal64::ZERO {
+    if total_size > 0.0 {
         Some(PriceTick {
             exchange,
             symbol: pair,

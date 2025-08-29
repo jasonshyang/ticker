@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>SOL/USDT Live Charts</title>
+    <script src="https://unpkg.com/htmx.org@1.9.9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      .chart-container { width: 800px; height: 400px; margin-bottom: 3rem; }
+    </style>
+  </head>
+  <body>
+    <h1>SOL/USDT — Live Ticks</h1>
+
+    <div class="chart-container">
+      <canvas id="priceChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="sizeChart"></canvas>
+    </div>
+
+    <div 
+      id="ticks-data" 
+      hx-get="/ticks" 
+      hx-trigger="load, every 5s" 
+      hx-swap="innerHTML"
+      style="display: none;"
+    ></div>
+
+    <script>
+      const priceCtx = document.getElementById('priceChart').getContext('2d');
+      const sizeCtx = document.getElementById('sizeChart').getContext('2d');
+
+      const priceChart = new Chart(priceCtx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index' },
+          plugins: { title: { display: true, text: "Price per Exchange" } },
+          scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'second'
+            },
+            title: { display: true, text: "Time" }
+          },
+          y: { title: { display: true, text: "Price" } }
+        }
+        }
+      });
+
+      const sizeChart = new Chart(sizeCtx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index' },
+          plugins: { title: { display: true, text: "Size per Exchange" } },
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'second' },
+              title: { display: true, text: "Time" }
+            },
+            y: { title: { display: true, text: "Size" } }
+          }
+        }
+      });
+
+      document.body.addEventListener('htmx:afterSwap', (evt) => {
+        if (evt.target.id === 'ticks-data') {
+          try {
+            const data = JSON.parse(evt.target.innerText);
+
+            const grouped = {};
+            for (const d of data) {
+              if (!grouped[d.exchange]) grouped[d.exchange] = [];
+              grouped[d.exchange].push(d);
+            }
+
+            Object.values(grouped).forEach(arr =>
+              arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+            );
+
+            const priceDatasets = [];
+            const sizeDatasets = [];
+
+            for (const [exchange, ticks] of Object.entries(grouped)) {
+              const color = exchange === "Binance" ? "blue" :
+                            exchange === "Bybit" ? "orange" :
+                            exchange === "Coinbase"? "green" : "gray";
+
+              priceDatasets.push({
+                label: `${exchange} Price`,
+                data: ticks.map(d => ({
+                  x: new Date(d.timestamp),
+                  y: d.price
+                })),
+                borderColor: color,
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 0
+              });
+
+              sizeDatasets.push({
+                label: `${exchange} Size`,
+                data: ticks.map(d => ({
+                  x: new Date(d.timestamp),
+                  y: d.size
+                })),
+                borderColor: color,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.3,
+                pointRadius: 0
+              });
+            }
+
+            priceChart.data.datasets = priceDatasets;
+            priceChart.update();
+
+            sizeChart.data.datasets = sizeDatasets;
+            sizeChart.update();
+          } catch (err) {
+            console.error("Failed to parse ticks:", err);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

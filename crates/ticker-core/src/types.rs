@@ -1,12 +1,14 @@
 use std::pin::Pin;
 
-use chrono::{DateTime, Utc};
-use dec::Decimal64;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use serde::Serialize;
 use tokio_stream::Stream;
+
+use crate::error::TickerError;
 
 pub type EventStream<'a, E> = Pin<Box<dyn Stream<Item = E> + Send + 'a>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Exchange {
     Binance,
     Bybit,
@@ -20,7 +22,7 @@ pub enum Event {
     Unsupported,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Pair {
     BTCUSDT,
     ETHUSDT,
@@ -36,21 +38,37 @@ pub enum PairFormat {
 
 #[derive(Debug)]
 pub struct RawPriceTick {
-    pub price: Decimal64,
-    pub size: Decimal64,
+    pub price: f64,
+    pub size: f64,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct PriceTick {
     pub exchange: Exchange,
     pub symbol: Pair,
-    pub price: Decimal64,
-    pub size: Decimal64,
+    pub price: f64,
+    pub size: f64,
     pub timestamp: DateTime<Utc>,
 }
 
 impl PriceTick {
+    pub fn try_from_db_record(
+        exchange: String,
+        symbol: String,
+        price: f64,
+        size: f64,
+        timestamp: NaiveDateTime,
+    ) -> Result<Self, TickerError> {
+        Ok(Self {
+            exchange: exchange.try_into()?,
+            symbol: symbol.try_into()?,
+            price,
+            size,
+            timestamp: DateTime::<Utc>::from_naive_utc_and_offset(timestamp, Utc),
+        })
+    }
+
     pub fn into_strings(self) -> (String, String, String, String, String) {
         (
             self.exchange.to_string(),
@@ -59,6 +77,38 @@ impl PriceTick {
             self.size.to_string(),
             self.timestamp.to_rfc3339(),
         )
+    }
+}
+
+impl TryFrom<String> for Exchange {
+    type Error = TickerError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "Binance" => Ok(Exchange::Binance),
+            "Bybit" => Ok(Exchange::Bybit),
+            "Coinbase" => Ok(Exchange::Coinbase),
+            _ => Err(TickerError::RawEventParseError(format!(
+                "Unknown exchange: {}",
+                value
+            ))),
+        }
+    }
+}
+
+impl TryFrom<String> for Pair {
+    type Error = TickerError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "BTCUSDT" => Ok(Pair::BTCUSDT),
+            "ETHUSDT" => Ok(Pair::ETHUSDT),
+            "SOLUSDT" => Ok(Pair::SOLUSDT),
+            _ => Err(TickerError::RawEventParseError(format!(
+                "Unknown pair: {}",
+                value
+            ))),
+        }
     }
 }
 

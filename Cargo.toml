@@ -5,14 +5,17 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+ticker-core     = { path = "crates/ticker-core" }
 exstreamer      = { git = "https://github.com/jasonshyang/exstreamer", rev = "726bf09" }
 anyhow          = { version = "1.0" }
 tokio           = { version = "1.0", features = ["full"] }
-dec             = { version = "0.4.11", features = ["num-traits"] }
-chrono          = { version = "0.4" }
+chrono          = { version = "0.4", features = ["serde"] }
 thiserror       = { version = "1.0" }
 tokio-stream    = { version = "0.1" }
 async-trait     = { version = "0.1" }
 futures         = { version = "0.3" }
 sqlx            = { version = "0.8", features = ["sqlite", "chrono", "runtime-tokio", "macros"] }
 rayon           = { version = "1.11" }
+axum            = { version = "0.8" }
+serde           = { version = "1.0", features = ["derive"] }
+askama          = { version = "0.14" }

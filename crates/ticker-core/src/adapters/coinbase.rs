@@ -13,7 +13,7 @@ pub struct CoinbaseAdapter;
 #[async_trait::async_trait]
 impl ExchangeAdapter for CoinbaseAdapter {
     fn kind() -> Exchange {
-        Exchange::Bybit
+        Exchange::Coinbase
     }
 
     async fn get_event_stream(&self, pair: &Pair) -> Result<EventStream<'_, Event>, TickerError> {

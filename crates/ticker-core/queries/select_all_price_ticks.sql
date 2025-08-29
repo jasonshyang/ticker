@@ -1,0 +1,4 @@
+SELECT *
+FROM price_ticks
+ORDER BY ts DESC
+LIMIT $1;

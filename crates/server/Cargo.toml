@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ticker-core.workspace   = true
+axum.workspace          = true
+sqlx.workspace          = true
+tokio.workspace         = true
+anyhow.workspace        = true
+askama.workspace        = true
